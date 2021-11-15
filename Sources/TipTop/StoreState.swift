@@ -107,6 +107,7 @@ enum StoreState: Equatable {
   /// These events are ignored staying in `purchasing`.
   indirect case purchasing(ProductIdentifier, StoreState)
 
+  indirect case restoring(StoreState)
 }
 
 extension StoreState: CustomStringConvertible {
@@ -125,6 +126,8 @@ extension StoreState: CustomStringConvertible {
       return "StoreState: ( offline, \(free) )"
     case .purchasing(let pid, let nextState):
       return "StoreState: ( purchasing, \(pid), \(nextState) )"
+    case .restoring:
+      return "StoreState: restoring"
     }
   }
 

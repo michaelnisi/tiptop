@@ -11,8 +11,7 @@
 
 import StoreKit
 
-/// The payment queue proxy allows swapping out the queue for testing.
-protocol Paying {
+public protocol Paying {
   func add(_ payment: SKPayment)
   func restoreCompletedTransactions()
   func finishTransaction(_ transaction: SKPaymentTransaction)
@@ -20,24 +19,29 @@ protocol Paying {
   func remove(_ observer: SKPaymentTransactionObserver)
 }
 
-extension Paying {
+public extension Paying {
   func add(_ payment: SKPayment) {
-    SKPaymentQueue.default().add(payment)
+    SKPaymentQueue.default()
+      .add(payment)
   }
   
   func restoreCompletedTransactions() {
-    SKPaymentQueue.default().restoreCompletedTransactions()
+    SKPaymentQueue.default()
+      .restoreCompletedTransactions()
   }
   
   func finishTransaction(_ transaction: SKPaymentTransaction) {
-    SKPaymentQueue.default().finishTransaction(transaction)
+    SKPaymentQueue.default()
+      .finishTransaction(transaction)
   }
   
   func add(_ observer: SKPaymentTransactionObserver) {
-    SKPaymentQueue.default().add(observer)
+    SKPaymentQueue.default()
+      .add(observer)
   }
   
   func remove(_ observer: SKPaymentTransactionObserver) {
-    SKPaymentQueue.default().remove(observer)
+    SKPaymentQueue.default()
+      .remove(observer)
   }
 }

@@ -11,22 +11,23 @@
 
 import Foundation
 
-public extension UserDefaults {
+extension UserDefaults {
+  static var statusKey = "ink.codes.podest.status"
+  static var expirationKey = "ink.codes.podest.expiration"
   static var lastVersionPromptedForReviewKey = "ink.codes.podest.lastVersionPromptedForReview"
+}
 
+public extension UserDefaults {
   var lastVersionPromptedForReview: String? {
-    string(forKey: UserDefaults.lastVersionPromptedForReviewKey)
+    get { string(forKey: UserDefaults.lastVersionPromptedForReviewKey) }
+    set { set(newValue, forKey: UserDefaults.lastVersionPromptedForReviewKey) }
   }
 
-  static func registerDefaults(_ user: UserDefaults = UserDefaults.standard) {
+  static func registerTipTopDefaults(_ user: UserDefaults = UserDefaults.standard) {
     user.register(defaults: [
       lastVersionPromptedForReviewKey: "0"
     ])
   }
 }
 
-extension UserDefaults {
-  static var statusKey = "ink.codes.podest.status"
-  static var expirationKey = "ink.codes.podest.expiration"
-}
 

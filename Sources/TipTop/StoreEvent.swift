@@ -26,6 +26,8 @@ enum StoreEvent {
   case considerReview
   case review
   case cancelReview(Bool)
+  case restore
+  case restored
 }
 
 extension StoreEvent: CustomStringConvertible {
@@ -62,6 +64,10 @@ extension StoreEvent: CustomStringConvertible {
       return "StoreEvent: considerReview"
     case .cancelReview:
       return "StoreEvent: cancelReview"
+    case .restore:
+      return "StoreEvent: restore"
+    case .restored:
+      return "StoreEvent: restored"
     }
   }
 }

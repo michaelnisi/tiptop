@@ -37,12 +37,8 @@ public protocol StoreAccessDelegate: AnyObject {
 
 /// Receives shopping events.
 public protocol StoreDelegate: AnyObject {
-  /// After fetching available IAPs, this callback receives products or error.
-  func store(
-    _ store: Shopping,
-    offers products: [SKProduct],
-    error: ShoppingError?
-  )
+  /// After fetching available IAPs, this callback receives products or an error.
+  func store(_ store: Shopping, offers products: [SKProduct], error: ShoppingError?)
 
   /// The identifier of the product currently being purchased.
   func store(_ store: Shopping, purchasing productIdentifier: String)
@@ -61,7 +57,7 @@ public protocol Rating {
 
   /// Cancels previous review request, `resetting` the cycle to defer the next.
   ///
-  /// For example, just after becoming active again is probably not a good time
+  /// For example, right after becoming active again is probably not a good time
   /// to ask for a rating. Prevent this by `resetting` before going into the
   /// background.
   func cancelReview(resetting: Bool)

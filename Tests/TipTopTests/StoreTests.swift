@@ -66,7 +66,7 @@ class StoreTests: XCTestCase {
     }
   }
   
-  var store: StoreFSM!
+  var store: Store!
   var db: NSUbiquitousKeyValueStore!
   
   override func setUp() {
@@ -80,7 +80,7 @@ class StoreTests: XCTestCase {
     let q = TestPaymentQueue()
     
     db = NSUbiquitousKeyValueStore()
-    store = StoreFSM(url: url, paymentQueue: q, db: db, version: v)
+    store = Store(url: url, paymentQueue: q, db: db, version: v)
     
     
     XCTAssertEqual(store.state, .initialized)
@@ -198,7 +198,7 @@ extension StoreTests {
 extension StoreTests {
   
   func testMakeSettingsInfo() {
-    XCTAssertNil(StoreFSM.makeSettingsInfo(receipts: []))
+    XCTAssertNil(Store.makeSettingsInfo(receipts: []))
     
     let wanted = Date()
     
@@ -220,10 +220,10 @@ extension StoreTests {
       )
     ]
     
-    let (status, expiration) = StoreFSM.makeSettingsInfo(receipts: receipts)!
+    let (status, expiration) = Store.makeSettingsInfo(receipts: receipts)!
     
     XCTAssertEqual(status, "Paul", "should find the youngest")
-    XCTAssertEqual(expiration, StoreFSM.makeExpiration(
+    XCTAssertEqual(expiration, Store.makeExpiration(
       date: wanted, 
       period: .subscription
     ))
@@ -235,7 +235,7 @@ extension StoreTests {
 extension StoreTests {
   
   func testExpiredTrial() {
-    db.set(Date.distantPast.timeIntervalSince1970, forKey: StoreFSM.unsealedKey)
+    db.set(Date.distantPast.timeIntervalSince1970, forKey: Store.unsealedKey)
     
     let subscriberDelegate = Accessor()
     store.subscriberDelegate = subscriberDelegate
@@ -279,7 +279,7 @@ extension StoreTests {
   }
   
   func testExpiredTrialSubscribed() {
-    db.set(Date.distantPast.timeIntervalSince1970, forKey: StoreFSM.unsealedKey)
+    db.set(Date.distantPast.timeIntervalSince1970, forKey: Store.unsealedKey)
     
     let subscriberDelegate = Accessor()
     store.subscriberDelegate = subscriberDelegate
@@ -317,20 +317,20 @@ extension StoreTests {
   
   func testMakeExpiration() {
     let zero = Date(timeIntervalSince1970: 0)
-    let fixtures: [(Date, StoreFSM.Period, Date)] = [
+    let fixtures: [(Date, Store.Period, Date)] = [
       (zero, .always, zero),
       (zero, .subscription, zero.addingTimeInterval(3.154e7)),
       (zero, .trial, zero.addingTimeInterval(2.419e6))
     ]
     
     for (date, period, wanted) in fixtures {
-      XCTAssertEqual(StoreFSM.makeExpiration(date: date, period: period), wanted)
+      XCTAssertEqual(Store.makeExpiration(date: date, period: period), wanted)
     }
   }
 
   func testExpiration() {
     do {
-      let expirations: [StoreFSM.Period] = [.trial, .subscription]
+      let expirations: [Store.Period] = [.trial, .subscription]
 
       for x in expirations {
         XCTAssertFalse(x.isExpired(date: Date.distantFuture))
@@ -340,7 +340,7 @@ extension StoreTests {
     }
 
     do {
-      let always = StoreFSM.Period.always
+      let always = Store.Period.always
       let dates = [Date(), Date.distantPast]
 
       for date in dates {
@@ -351,15 +351,15 @@ extension StoreTests {
     }
 
     do {
-      XCTAssertFalse(StoreFSM.Period.trial.isExpired(
-        date: Date(timeIntervalSinceNow: -StoreFSM.Period.trial.rawValue + 1)))
-      XCTAssertTrue(StoreFSM.Period.trial.isExpired(
-        date: Date(timeIntervalSinceNow: -StoreFSM.Period.trial.rawValue)))
+      XCTAssertFalse(Store.Period.trial.isExpired(
+        date: Date(timeIntervalSinceNow: -Store.Period.trial.rawValue + 1)))
+      XCTAssertTrue(Store.Period.trial.isExpired(
+        date: Date(timeIntervalSinceNow: -Store.Period.trial.rawValue)))
 
-      XCTAssertFalse(StoreFSM.Period.subscription.isExpired(
-        date: Date(timeIntervalSinceNow: -StoreFSM.Period.subscription.rawValue + 1)))
-      XCTAssertTrue(StoreFSM.Period.subscription.isExpired(
-        date: Date(timeIntervalSinceNow: -StoreFSM.Period.subscription.rawValue)))
+      XCTAssertFalse(Store.Period.subscription.isExpired(
+        date: Date(timeIntervalSinceNow: -Store.Period.subscription.rawValue + 1)))
+      XCTAssertTrue(Store.Period.subscription.isExpired(
+        date: Date(timeIntervalSinceNow: -Store.Period.subscription.rawValue)))
     }
   }
   

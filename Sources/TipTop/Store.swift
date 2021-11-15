@@ -13,17 +13,19 @@ import UIKit
 import StoreKit
 import os.log
 
-private let log = OSLog(subsystem: "ink.codes.podest", category: "store")
+private let log = OSLog(subsystem: "ink.codes.tiptop", category: "Store")
 
-private class DefaultPaymentQueue: Paying {}
+public class DefaultPaymentQueue: Paying {
+  public init() {}
+}
 
-/// StoreFSM is a store for in-app purchases, offering a single non-renewing
+/// Store is a store for in-app purchases, offering a single non-renewing
 /// subscription at three flexible prices. After a successful purchase the store
 /// disappears. It returns when the subscription expires or its receipts has
 /// been deleted from the `Storing` key-value database.
 ///
 /// The exposed `Shopping` API expects calls from the main queue.
-final class StoreFSM: NSObject {
+public final class Store: NSObject {
   /// The file URL of where to find the product identifiers.
   private let url: URL
 
@@ -32,7 +34,7 @@ final class StoreFSM: NSObject {
   private let ttl: TimeInterval
   
   /// A queue of payment transactions to be processed by the App Store.
-  private let paymentQueue: Paying
+  let paymentQueue: Paying
   
   /// The (default) iCloud key-value store object.
   private let db: NSUbiquitousKeyValueStore
@@ -43,7 +45,7 @@ final class StoreFSM: NSObject {
   static var unsealedKey = "ink.codes.podest.store.unsealed"
   
   private var unsealedTime: TimeInterval {
-    db.double(forKey: StoreFSM.unsealedKey)
+    db.double(forKey: Store.unsealedKey)
   }
   
   /// Sets unsealed timestamp in `db` and returns existing or new timestamp.
@@ -52,14 +54,14 @@ final class StoreFSM: NSObject {
     _ db: NSUbiquitousKeyValueStore, 
     env: BuildVersion.Environment
   ) -> TimeInterval {  
-    let value = db.double(forKey: StoreFSM.unsealedKey)
+    let value = db.double(forKey: Store.unsealedKey)
     
     guard env != .sandbox, value != 0 else {
       os_log("unsealing", log: log)
       
       let ts = Date().timeIntervalSince1970
       
-      db.set(ts, forKey: StoreFSM.unsealedKey)
+      db.set(ts, forKey: Store.unsealedKey)
       
       return ts
     }
@@ -67,7 +69,7 @@ final class StoreFSM: NSObject {
     return value
   }
   
-  private var reviewRequester: ReviewRequester?
+  var reviewRequester: ReviewRequester?
   
   /// Creates a new store with minimal dependencies. **Protocol dependencies**
   /// for easier testing.
@@ -78,7 +80,7 @@ final class StoreFSM: NSObject {
   ///   - paymentQueue: The App Store payment queue.
   ///   - db: The (default) iCloud key-value store object.
   ///   - version: The version of this app.
-  init(
+  public init(
     url: URL,
     ttl: TimeInterval = 600,
     paymentQueue: Paying = DefaultPaymentQueue(),
@@ -92,7 +94,7 @@ final class StoreFSM: NSObject {
     self.version = version
     self.state = .initialized
     
-    let t = StoreFSM.unseal(db, env: version.env)
+    let t = Store.unseal(db, env: version.env)
     self.reviewRequester = ReviewRequester(
       version: version, unsealedTime: t, log: log)
   }
@@ -102,27 +104,27 @@ final class StoreFSM: NSObject {
 
   /// Flag for asserts, `true` if we are observing the payment queue.
   private var isObserving: Bool {
-    return didChangeExternallyObserver != nil
+    didChangeExternallyObserver != nil
   }
 
   /// The currently available products.
   private (set) var products: [SKProduct]?
 
-  weak var delegate: StoreDelegate?
+  weak public var delegate: StoreDelegate?
   
-  weak var subscriberDelegate: StoreAccessDelegate?
+  weak public var subscriberDelegate: StoreAccessDelegate?
   
   // MARK: Reachability
 
   private func isReachable() -> Bool {
-    return subscriberDelegate?.reach() ?? false
+    subscriberDelegate?.reach() ?? false
   }
 
   // MARK: Products and Identifiers
 
   /// Returns the first product matching `identifier`.
   private func product(matching identifier: ProductIdentifier) -> SKProduct? {
-    return products?.first { $0.productIdentifier == identifier }
+    products?.first { $0.productIdentifier == identifier }
   }
 
   /// The current products request.
@@ -170,7 +172,7 @@ final class StoreFSM: NSObject {
     request = req
   }
 
-  private func updateProducts() -> StoreState {
+  func updateProducts() -> StoreState {
     guard isReachable() else {
       delegateQueue.async {
         self.delegate?.store(self, offers: [], error: .offline)
@@ -199,8 +201,8 @@ final class StoreFSM: NSObject {
     switch (version.env, forcing) {
     case (.sandbox, _), (.store, true), (.simulator, _):
       os_log("removing receipts", log: log)
-      db.removeObject(forKey: StoreFSM.receiptsKey(suiting: version.env))
-      StoreFSM.unseal(db, env: version.env)
+      db.removeObject(forKey: Store.receiptsKey(suiting: version.env))
+      Store.unseal(db, env: version.env)
       
       return true
       
@@ -214,7 +216,7 @@ final class StoreFSM: NSObject {
   private func loadReceipts() -> [PodestReceipt] {
     dispatchPrecondition(condition: .notOnQueue(.main))
 
-    let r = StoreFSM.receiptsKey(suiting: version.env)
+    let r = Store.receiptsKey(suiting: version.env)
 
     os_log("loading receipts: %@", log: log, type: .debug, r)
 
@@ -243,18 +245,18 @@ final class StoreFSM: NSObject {
     Date(timeIntervalSince1970: date.timeIntervalSince1970 + period.rawValue)
   }
 
-  private func saveReceipt(_ receipt: PodestReceipt) {
+  func saveReceipt(_ receipt: PodestReceipt) {
     os_log("saving receipt: %@", log: log, type: .debug, String(describing: receipt))
 
     let acc = loadReceipts() + [receipt]
     let encoder = JSONEncoder()
     encoder.outputFormatting = .prettyPrinted
     let data = try! encoder.encode(acc)
-    let r = StoreFSM.receiptsKey(suiting: version.env)
+    let r = Store.receiptsKey(suiting: version.env)
 
     db.set(data, forKey: r)
 
-    if let (status, expiration) = StoreFSM.makeSettingsInfo(receipts: acc) {
+    if let (status, expiration) = Store.makeSettingsInfo(receipts: acc) {
       updateSettings(status: status, expiration: expiration)
     }
 
@@ -272,7 +274,7 @@ final class StoreFSM: NSObject {
 
     /// Returns `true` if `date` exceeds this period into the future.
     func isExpired(date: Date) -> Bool {
-      return date.timeIntervalSinceNow <= -rawValue
+      date.timeIntervalSinceNow <= -rawValue
     }
   }
   
@@ -298,14 +300,14 @@ final class StoreFSM: NSObject {
     return nil
   }
   
-  private func validateTrial(updatingSettings: Bool = false) -> Bool {
+  func validateTrial(updatingSettings: Bool = false) -> Bool {
     os_log("validating trial", log: log, type: .debug)
     
     let ts = unsealedTime
     
     if updatingSettings {
       let unsealed = Date(timeIntervalSince1970: ts)
-      let expiration = StoreFSM.makeExpiration(date: unsealed, period: Period.trial)
+      let expiration = Store.makeExpiration(date: unsealed, period: Period.trial)
       updateSettings(status: "Free Trial", expiration: expiration)
     }
 
@@ -324,7 +326,7 @@ final class StoreFSM: NSObject {
     
     let id = receipt.productIdentifier
     let status = (id.split(separator: ".").last ?? "unknown").capitalized
-    let expiration = StoreFSM.makeExpiration(
+    let expiration = Store.makeExpiration(
       date: receipt.transactionDate, 
       period: .subscription
     )
@@ -332,17 +334,17 @@ final class StoreFSM: NSObject {
     return (status, expiration)
   }
 
-  private func validateReceipts() -> StoreState {
+  func validateReceipts() -> StoreState {
     let receipts = loadReceipts()
     
     os_log("validating receipts: %@", log: log, type: .debug, String(describing: receipts))
 
-    guard let id = StoreFSM.validProductIdentifier(
+    guard let id = Store.validProductIdentifier(
       receipts, matching: productIdentifiers) else {
       return .interested(validateTrial(updatingSettings: true))
     }
     
-    if let (status, expiration) = StoreFSM.makeSettingsInfo(receipts: receipts) {
+    if let (status, expiration) = Store.makeSettingsInfo(receipts: receipts) {
       updateSettings(status: status, expiration: expiration)
     }
     
@@ -353,7 +355,7 @@ final class StoreFSM: NSObject {
 
   /// An internal serial queue for synchronized access.
   private let sQueue = DispatchQueue(
-    label: "ink.codes.podest.StoreFSM",
+    label: "ink.codes.podest.Store",
     target: .global(qos: .userInitiated)
   )
 
@@ -369,7 +371,7 @@ final class StoreFSM: NSObject {
 
   // Calling the delegate on a distinct system queue for keeping things
   // serially in order.
-  private var delegateQueue = DispatchQueue.global(qos: .userInitiated)
+  var delegateQueue = DispatchQueue.global(qos: .userInitiated)
 
   /// Is `true` for interested users with the intention of hiding the store for customers.
   private var isAccessible: Bool = false {
@@ -385,7 +387,7 @@ final class StoreFSM: NSObject {
   }
   
   /// Updates `isAccessible` matching `state`.
-  private func updateIsAccessible(matching state: StoreState) -> StoreState {
+  func updateIsAccessible(matching state: StoreState) -> StoreState {
     switch state {
     case .subscribed:
       isAccessible = false
@@ -398,7 +400,7 @@ final class StoreFSM: NSObject {
     return state
   }
   
-  private func addPayment(matching productIdentifier: ProductIdentifier) -> StoreState {
+  func addPayment(matching productIdentifier: ProductIdentifier) -> StoreState {
     guard let p = product(matching: productIdentifier) else {
       delegateQueue.async {
         self.delegate?.store(self, error: .invalidProduct(productIdentifier))
@@ -413,6 +415,12 @@ final class StoreFSM: NSObject {
     
     return .purchasing(productIdentifier, state)
   }
+  
+  func restore() -> StoreState {
+    paymentQueue.restoreCompletedTransactions()
+    
+    return .restoring(state)
+  }
 
   private var didChangeExternallyObserver: NSObjectProtocol?
 
@@ -421,7 +429,7 @@ final class StoreFSM: NSObject {
   private func observeUbiquitousKeyValueStore() {
     precondition(didChangeExternallyObserver == nil)
 
-    let r = StoreFSM.receiptsKey(suiting: version.env)
+    let r = Store.receiptsKey(suiting: version.env)
     
     didChangeExternallyObserver = NotificationCenter.default.addObserver(
       forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
@@ -474,7 +482,7 @@ final class StoreFSM: NSObject {
     didChangeExternallyObserver = nil
   }
 
-  private func addObservers() -> StoreState {
+  func addObservers() -> StoreState {
     precondition(!isObserving)
     paymentQueue.add(self)
     observeUbiquitousKeyValueStore()
@@ -482,7 +490,7 @@ final class StoreFSM: NSObject {
     return updateProducts()
   }
 
-  private func removeObservers() -> StoreState {
+  func removeObservers() -> StoreState {
     precondition(isObserving)
     paymentQueue.remove(self)
     stopObservingUbiquitousKeyValueStore()
@@ -490,7 +498,7 @@ final class StoreFSM: NSObject {
     return .initialized
   }
 
-  private func receiveProducts(_ products: [SKProduct], error: ShoppingError?) -> StoreState {
+  func receiveProducts(_ products: [SKProduct], error: ShoppingError?) -> StoreState {
     self.products = products
 
     delegateQueue.async {
@@ -506,7 +514,7 @@ final class StoreFSM: NSObject {
   /// Designated to **never** prompt subscribers about their expired free trial.
   /// OK, there’s still the rare case, where users subscribed on another device
   /// and are launching the app on an offline unsynchronized device. Thoughts?
-  private func updatedState(after error: ShoppingError, next nextState: StoreState) -> StoreState {
+  func updatedState(after error: ShoppingError, next nextState: StoreState) -> StoreState {
     let er: ShoppingError = isReachable() ? error : .offline
     
     delegateQueue.async {
@@ -539,209 +547,39 @@ final class StoreFSM: NSObject {
     dispatchPrecondition(condition: .onQueue(sQueue))
     
     switch state {
-
-    // MARK: initialized
-
     case .initialized:
-      switch event {
-      case .resume:
-        return addObservers()
-
-      case .pause, 
-           .considerReview,
-           .review:
-        return state
-        
-      case .cancelReview(let resetting):
-        reviewRequester?.cancelReview(resetting: resetting)
-        
-        return state
-
-      case .failed,
-           .online,
-           .pay,
-           .productsReceived,
-           .purchased,
-           .purchasing,
-           .receiptsChanged,
-           .update:
-        fatalError("unhandled event")
-      }
-
-    // MARK: fetchingProducts
+      return Initialized(store: self)
+        .reduce(state, event: event)
 
     case .fetchingProducts:
-      switch event {
-      case .productsReceived(let products, let error):
-        return receiveProducts(products, error: error)
+      return FetchingProducts(store: self)
+        .reduce(state, event: event)
       
-      case .receiptsChanged, .update, .online:
-        return state
-
-      case .failed(let error):
-        return updatedState(after: error, next: .interested(validateTrial()))
-
-      case .resume, .considerReview, .review:
-        return state
-      
-      case .cancelReview(let resetting):
-        reviewRequester?.cancelReview(resetting: resetting)
-        
-        return state
-
-      case .pause:
-        return removeObservers()
-
-      case .pay, .purchased, .purchasing:
-        fatalError("unhandled event")
-      }
-
-    // MARK: offline
-
     case .offline:
-      switch event {
-      case .online, .receiptsChanged, .update:
-        return updateProducts()
-
-      case .pause:
-        return removeObservers()
-        
-      case .considerReview, .review:
-        return state
-        
-      case .cancelReview(let resetting):
-        reviewRequester?.cancelReview(resetting: resetting)
-        
-        return state
-
-      case .resume, .failed, .pay, .productsReceived, .purchased, .purchasing:
-        fatalError("unhandled event")
-      }
+      return Offline(store: self)
+        .reduce(state, event: event)
       
-    // MARK: interested
-
     case .interested:
-      switch event {
-      case .receiptsChanged:
-        return updateIsAccessible(matching: validateReceipts())
-
-      case .purchased(let pid):
-        delegateQueue.async {
-          self.delegate?.store(self, purchased: pid)
-        }
-
-        return updateIsAccessible(matching: validateReceipts())
-
-      case .purchasing(let pid):
-        delegateQueue.async {
-          self.delegate?.store(self, purchasing: pid)
-        }
-
-        return .purchasing(pid, state)
-
-      case .failed(let error):
-        return updatedState(after: error, next: state)
-
-      case .pay(let pid):
-        delegateQueue.async {
-          self.delegate?.store(self, purchasing: pid)
-        }
-
-        return addPayment(matching: pid)
-
-      case .update:
-        return updateProducts()
-
-      case .productsReceived(let products, let error):
-        return receiveProducts(products, error: error)
-
-      case .resume:
-        return state
-
-      case .pause:
-        return removeObservers()
-
-      case .online:
-        fatalError("unhandled event")
-        
-      case .considerReview:
-        reviewRequester?.setReviewTimeout { [weak self] in
-          self?.event(.review)
-        }
-        
-        return state
-        
-      case .review:
-        reviewRequester?.requestReview()
-      
-        return state
-        
-      case .cancelReview(let resetting):
-        reviewRequester?.cancelReview(resetting: resetting)
-        
-        return state
-      }
-
-    // MARK: subscribed
+      return Interested(store: self)
+        .reduce(state, event: event)
 
     case .subscribed:
-      return state
+      return Subscribed()
+        .reduce(state, event: event)
+    
+    case let .restoring(nextState):
+      return Restoring(store: self, nextState: nextState)
+        .reduce(state, event: event)
 
-    // MARK: purchasing
-
-    case .purchasing(let current, let nextState):
-      switch event {
-      case .purchased(let pid):
-        if current != pid {
-          os_log("mismatching products: ( %@, %@ )",
-                 log: log, current, pid)
-        }
-
-        delegateQueue.async {
-          self.delegate?.store(self, purchased: pid)
-        }
-
-        return updateIsAccessible(matching: validateReceipts())
-        
-      case .failed(let error):
-        return updatedState(after: error, next: nextState)
-        
-      case .purchasing(let pid), .pay(let pid):
-        if current != pid {
-          os_log("parallel purchasing: ( %@, %@ )", log: log, current, pid)
-        }
-
-        return state
-      
-      case .receiptsChanged:
-        return updateIsAccessible(matching: validateReceipts())
-
-      case .update:
-        return updateProducts()
-
-      case .pause:
-        return removeObservers()
-
-      case .productsReceived(let products, let error):
-        return receiveProducts(products, error: error)
-        
-      case .considerReview, .review:
-        return state
-        
-      case .cancelReview(let resetting):
-        reviewRequester?.cancelReview(resetting: resetting)
-        
-        return state
-
-      case .resume, .online:
-        fatalError("unhandled event")
-      }
+    case .purchasing(let productIdentifier, let nextState):
+      return Purchasing(store: self, nextState: nextState, productIdentifier: productIdentifier)
+        .reduce(state, event: event)
     }
   }
 
   /// Synchronously handles event using `sQueue`, our event queue. Obviously,
   /// a store with one cashier works sequentially.
-  private func event(_ e: StoreEvent) {
+  func event(_ e: StoreEvent) {
     sQueue.sync {
       os_log("handling event: %{public}@", log: log, type: .debug, e.description)
 
@@ -750,123 +588,22 @@ final class StoreFSM: NSObject {
   }
 }
 
-// MARK: - SKProductsRequestDelegate
-
-extension StoreFSM: SKProductsRequestDelegate {
-  func productsRequest(
-    _ request: SKProductsRequest,
-    didReceive response: SKProductsResponse
-  ) {
-    os_log("response received: %@", log: log, type: .debug, response)
-
-    DispatchQueue.main.async {
-      self.request = nil
-    }
-
-    DispatchQueue.global(qos: .utility).async {
-      let error: ShoppingError? = {
-        let invalidIDs = response.invalidProductIdentifiers
-
-        guard invalidIDs.isEmpty else {
-          os_log("invalid product identifiers: %@",
-                 log: log, type: .error, invalidIDs)
-          return .invalidProduct(invalidIDs.first!)
-        }
-
-        return nil
-      }()
-
-      let products = response.products
-
-      self.event(.productsReceived(products, error))
-    }
-
-  }
-}
-
-// MARK: - SKPaymentTransactionObserver
-
-extension StoreFSM: SKPaymentTransactionObserver {
-  private func finish(transaction t: SKPaymentTransaction) {
-    os_log("finishing: %@", log: log, type: .debug, t)
-    paymentQueue.finishTransaction(t)
-  }
-
-  private func process(transaction t: SKPaymentTransaction) {
-    os_log("processing: %@", log: log, type: .debug, t)
-
-    let pid = t.payment.productIdentifier
-
-    guard t.error == nil else {
-      let er = t.error!
-
-      os_log("handling transaction error: %@",
-             log: log, type: .error, er as CVarArg)
-
-      event(.failed(ShoppingError(underlyingError: er)))
-
-      return finish(transaction: t)
-    }
-
-    switch t.transactionState {
-    case .failed:
-      os_log("transactionState: failed", log: log, type: .debug)
-      event(.failed(.failed))
-      finish(transaction: t)
-
-    case .purchased:
-      os_log("transactionState: purchased", log: log, type: .debug)
-      guard let receipt = PodestReceipt(transaction: t) else {
-        fatalError("receipt missing")
-      }
-      
-      saveReceipt(receipt)
-      event(.purchased(pid))
-
-      finish(transaction: t)
-
-    case .purchasing, .deferred:
-      os_log("transactionState: purchasing | deferred", log: log, type: .debug)
-      event(.purchasing(pid))
-
-    case .restored:
-      fatalError("unexpected transaction state")
-      
-    @unknown default:
-      fatalError("unknown case in switch: \(t.transactionState)")
-    }
-  }
-
-  func paymentQueue(
-    _ queue: SKPaymentQueue,
-    updatedTransactions transactions: [SKPaymentTransaction]
-  ) {
-    os_log("payment queue has updated transactions", log: log, type: .debug)
-    
-    DispatchQueue.global(qos: .utility).async {
-      for t in transactions {
-        self.process(transaction: t)
-      }
-    }
-  }
-}
-
 // MARK: - Shopping
 
-extension StoreFSM: Shopping {
-  func online() {
+extension Store: Shopping {
+  public func online() {
     DispatchQueue.global(qos: .utility).async {
       self.event(.online)
     }
   }
   
-  func update() {
+  public func update() {
     DispatchQueue.global(qos: .utility).async {
       self.event(.update)
     }
   }
   
-  func resume() {
+  public func resume() {
     os_log("resuming: %@", log: log, type: .debug, String(describing: version))
     DispatchQueue.global(qos: .utility).async {
       self.event(.resume)
@@ -879,37 +616,39 @@ extension StoreFSM: Shopping {
     }
   }
 
-  func payProduct(matching productIdentifier: String) {
+  public func payProduct(matching productIdentifier: String) {
     DispatchQueue.global(qos: .userInitiated).async {
       self.event(.pay(productIdentifier))
     }
   }
 
-  var canMakePayments: Bool {
+  public var canMakePayments: Bool {
     return SKPaymentQueue.canMakePayments()
   }
   
-  func restore() {
-    print("** restore")
+  public func restore() {
+    DispatchQueue.global().async {
+      self.event(.restore)
+    }
   }
 }
 
 // MARK: - Rating
 
-extension StoreFSM: Rating {
-  func considerReview() {
+extension Store: Rating {
+  public func considerReview() {
     DispatchQueue.global().async {
       self.event(.considerReview)
     }
   }
 
-  func cancelReview(resetting: Bool) {
+  public func cancelReview(resetting: Bool) {
     DispatchQueue.global().async {
       self.event(.cancelReview(resetting))
     }
   }
 
-  func cancelReview() {
+  public func cancelReview() {
     DispatchQueue.global().async {
       self.event(.cancelReview(false))
     }
@@ -918,8 +657,8 @@ extension StoreFSM: Rating {
 
 // MARK: - Expiring
 
-extension StoreFSM: Expiring {
-  func isExpired() -> Bool {
+extension Store: Expiring {
+  public func isExpired() -> Bool {
     return sQueue.sync {
       switch state {
       case .offline(let free), .interested(let free):
@@ -936,7 +675,7 @@ extension StoreFSM: Expiring {
         }
         
         return expired
-      case .fetchingProducts, .initialized, .purchasing, .subscribed:
+      case .fetchingProducts, .initialized, .purchasing, .subscribed, .restoring:
         return false
       }
     }

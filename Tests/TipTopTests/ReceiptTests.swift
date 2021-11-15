@@ -30,11 +30,11 @@ class ReceiptTests: XCTestCase {
     )
     
     let found = [
-      StoreFSM.validProductIdentifier([], matching: Set()),
-      StoreFSM.validProductIdentifier([past], matching: Set()),
-      StoreFSM.validProductIdentifier([past], matching: Set(["def"])),
-      StoreFSM.validProductIdentifier([past], matching: Set(["abc"])),
-      StoreFSM.validProductIdentifier([future], matching: Set(["def"]))
+      Store.validProductIdentifier([], matching: Set()),
+      Store.validProductIdentifier([past], matching: Set()),
+      Store.validProductIdentifier([past], matching: Set(["def"])),
+      Store.validProductIdentifier([past], matching: Set(["abc"])),
+      Store.validProductIdentifier([future], matching: Set(["def"]))
     ]
     
     for f in found {
@@ -62,13 +62,13 @@ class ReceiptTests: XCTestCase {
     )
     
     let found = [
-      StoreFSM.validProductIdentifier([future], matching: Set(["abc"])),
-      StoreFSM.validProductIdentifier([past, future], matching: Set(["abc"])),
-      StoreFSM.validProductIdentifier([future, past], matching: Set(["abc"])),
-      StoreFSM.validProductIdentifier([past, future, past], matching: Set(["abc"])),
-      StoreFSM.validProductIdentifier([recent, past, future], matching: Set(["def"])),
-      StoreFSM.validProductIdentifier([past, recent, past], matching: Set(["def"])),
-      StoreFSM.validProductIdentifier([future, past, recent], matching: Set(["def"]))
+      Store.validProductIdentifier([future], matching: Set(["abc"])),
+      Store.validProductIdentifier([past, future], matching: Set(["abc"])),
+      Store.validProductIdentifier([future, past], matching: Set(["abc"])),
+      Store.validProductIdentifier([past, future, past], matching: Set(["abc"])),
+      Store.validProductIdentifier([recent, past, future], matching: Set(["def"])),
+      Store.validProductIdentifier([past, recent, past], matching: Set(["def"])),
+      Store.validProductIdentifier([future, past, recent], matching: Set(["def"]))
     ]
     
     let wanted = [

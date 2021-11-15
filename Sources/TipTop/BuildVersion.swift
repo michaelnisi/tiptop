@@ -12,7 +12,7 @@
 import Foundation
 
 /// Version and environment of a bundle.
-struct BuildVersion {
+public struct BuildVersion {
   /// Enumerates three possible bundle environments.
   enum Environment {
     case store, sandbox, simulator
@@ -39,7 +39,7 @@ struct BuildVersion {
   /// - Parameter bundle: The bundle to draw version from.
   ///
   /// If this returns `nil`, the main bundle has no version.
-  init(bundle: Bundle = .main) {
+  public init(bundle: Bundle = .main) {
     dispatchPrecondition(condition: .onQueue(.main))
 
     let infoDictionaryKey = kCFBundleVersionKey as String
@@ -55,7 +55,7 @@ struct BuildVersion {
 }
 
 extension BuildVersion: CustomStringConvertible {
-  var description: String {
+  public var description: String {
     "BuildVersion: ( \(env), \(build) )"
   }
 }
