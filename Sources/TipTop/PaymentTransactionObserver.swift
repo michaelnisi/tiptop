@@ -18,12 +18,43 @@ private let log = OSLog(subsystem: "ink.codes.tiptop", category: "PaymentTransac
 // MARK: - SKPaymentTransactionObserver
 
 extension Store: SKPaymentTransactionObserver {
-  private func finish(transaction t: SKPaymentTransaction) {
+  public func paymentQueue(
+    _ queue: SKPaymentQueue,
+    updatedTransactions transactions: [SKPaymentTransaction]
+  ) {
+    os_log("updated transactions", log: log, type: .debug)
+    
+    DispatchQueue.global(qos: .userInitiated).async {
+      for t in transactions {
+        self.process(transaction: t)
+      }
+    }
+  }
+  
+  public func paymentQueue(_ queue: SKPaymentQueue, restoreCompletedTransactionsFailedWithError error: Error) {
+    os_log("restore failed: %{public}@", log: log, type: .error, error as CVarArg)
+    
+    DispatchQueue.global(qos: .userInitiated).async {
+      self.event(.failed(.failed))
+    }
+  }
+
+  public func paymentQueueRestoreCompletedTransactionsFinished(_ queue: SKPaymentQueue) {
+    os_log("restore completed: %{pulbic}i", log: log, type: .debug, queue.transactions.count)
+    
+    DispatchQueue.global(qos: .userInitiated).async {
+      self.event(.restored)
+    }
+  }
+}
+
+private extension Store {
+  func finish(transaction t: SKPaymentTransaction) {
     os_log("finishing: %@", log: log, type: .debug, t)
     paymentQueue.finishTransaction(t)
   }
 
-  private func process(transaction t: SKPaymentTransaction) {
+  func process(transaction t: SKPaymentTransaction) {
     os_log("processing: %@", log: log, type: .debug, t)
 
     let pid = t.payment.productIdentifier
@@ -67,30 +98,4 @@ extension Store: SKPaymentTransactionObserver {
       fatalError("unknown case in switch: \(t.transactionState)")
     }
   }
-
-  public func paymentQueue(
-    _ queue: SKPaymentQueue,
-    updatedTransactions transactions: [SKPaymentTransaction]
-  ) {
-    os_log("payment queue has updated transactions", log: log, type: .debug)
-    
-    DispatchQueue.global(qos: .utility).async {
-      for t in transactions {
-        self.process(transaction: t)
-      }
-    }
-  }
-
-  public func paymentQueueRestoreCompletedTransactionsFinished(_ queue: SKPaymentQueue) {
-    os_log("payment queue restore completed", log: log, type: .debug)
-    
-    DispatchQueue.global(qos: .utility).async {
-      for t in queue.transactions {
-        self.process(transaction: t)
-      }
-      
-      self.event(.restored)
-    }
-  }
 }
-

@@ -21,13 +21,18 @@ struct Restoring: StoreReducing {
       return store.updateIsAccessible(matching: store.validateReceipts())
       
     case .failed(let error):
+      if case .failed = error {
+        // In fact, non-renewable subscriptions are not restorable via App Store.
+        return store.updateIsAccessible(matching: store.validateReceipts())
+      }
+      
       return store.updatedState(after: error, next: nextState)
       
     case .restore:
       return store.restore()
       
     case .restored:
-      return nextState
+      return store.updateIsAccessible(matching: store.validateReceipts())
       
     case
         .resume,
