@@ -24,7 +24,7 @@ extension Store: SKPaymentTransactionObserver {
   ) {
     os_log("updated transactions", log: log, type: .debug)
     
-    DispatchQueue.global(qos: .userInitiated).async {
+    DispatchQueue.global(qos: .utility).async {
       for t in transactions {
         self.process(transaction: t)
       }
@@ -34,7 +34,7 @@ extension Store: SKPaymentTransactionObserver {
   public func paymentQueue(_ queue: SKPaymentQueue, restoreCompletedTransactionsFailedWithError error: Error) {
     os_log("restore failed: %{public}@", log: log, type: .error, error as CVarArg)
     
-    DispatchQueue.global(qos: .userInitiated).async {
+    DispatchQueue.global(qos: .utility).async {
       self.event(.failed(.failed))
     }
   }
@@ -42,7 +42,7 @@ extension Store: SKPaymentTransactionObserver {
   public func paymentQueueRestoreCompletedTransactionsFinished(_ queue: SKPaymentQueue) {
     os_log("restore completed: %{pulbic}i", log: log, type: .debug, queue.transactions.count)
     
-    DispatchQueue.global(qos: .userInitiated).async {
+    DispatchQueue.global(qos: .utility).async {
       self.event(.restored)
     }
   }
