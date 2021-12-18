@@ -532,18 +532,7 @@ public final class Store: NSObject {
     return nextState
   }
   
-  /// Returns the new store state after processing `event` relatively to the
-  /// current state. `interested` and `subscribed` are the two main antagonistic
-  /// states this finite state machine can be in. Its other states are
-  /// transitional.
-  ///
-  /// This strict FSM **traps** on unexpected events. All switch statements must
-  /// be **exhaustive**.
-  ///
-  /// - Parameter event: The event to handle.
-  ///
-  /// - Returns: The state resulting from the event.
-  private func updatedState(after event: StoreEvent) -> StoreState {
+  private func reduce(state: StoreState, event: StoreEvent) -> StoreState {
     dispatchPrecondition(condition: .onQueue(sQueue))
     
     switch state {
@@ -577,13 +566,11 @@ public final class Store: NSObject {
     }
   }
 
-  /// Synchronously handles event using `sQueue`, our event queue. Obviously,
-  /// a store with one cashier works sequentially.
-  func event(_ e: StoreEvent) {
+  func event(_ event: StoreEvent) {
     sQueue.sync {
-      os_log("handling event: %{public}@", log: log, type: .debug, e.description)
+      os_log("handling event: %{public}@", log: log, type: .debug, event.description)
 
-      state = updatedState(after: e)
+      state = reduce(state: state, event: event)
     }
   }
 }
